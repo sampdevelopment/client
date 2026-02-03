@@ -1,1 +1,0 @@
-[submodule "sdk"]\n\tpath = sdk\n\turl = https://github.com/sampdevelopment/sdk.git\n\tbranch = main\n
