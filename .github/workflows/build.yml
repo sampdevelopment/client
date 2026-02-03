@@ -1,6 +1,5 @@
-name: Build Server
+name: Build Client
 
-# Trigger on merge (push to main) and PRs targeting main
 on:
   push:
     branches: [ main ]
@@ -9,22 +8,49 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+    - name: Checkout repo + SDK
+      uses: actions/checkout@v4
       with:
-        submodules: true   # important to pull SDK submodule
+        submodules: true
+        fetch-depth: 0
 
-    - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -y build-essential cmake
+    # ================= WINDOWS =================
+    - name: Setup MSVC
+      if: matrix.os == 'windows-latest'
+      uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Create build folder
-      run: mkdir -p build
-
-    - name: Compile Server
+    - name: Build SDK (Windows)
+      if: matrix.os == 'windows-latest'
       run: |
-        cd build
-        cmake ..
-        make -j$(nproc)
+        cd SDK
+        msbuild sdk.sln /p:Configuration=Release /p:Platform=Win32
+
+    - name: Build Client (Win32)
+      if: matrix.os == 'windows-latest'
+      run: |
+        msbuild samp-client.sln /p:Configuration=Release /p:Platform=Win32
+
+    # ================= LINUX =================
+    - name: Install Linux deps
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential g++ make
+
+    - name: Build SDK (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd SDK
+        make
+
+    - name: Build Client Core (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        make linux
