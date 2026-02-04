@@ -8,23 +8,15 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    
-    steps:
-    - name: Checkout client
-      uses: actions/checkout@v4
 
-    - name: Clone SDK next to client
-      run: |
+    steps:
+    - uses: actions/checkout@v4
+
+    - run: |
         cd ..
         git clone https://github.com/sampdevelopment/sdk.git sdk
-        
-    - name: Check directories
-      run: |
-        cd ..
-        dir
-        dir sdk
-        dir client
 
-    - name: Build Client (Win32)
-      run: |
-        msbuild client.sln /p:Configuration=Release /p:Platform=Win32
+    - uses: microsoft/setup-msbuild@v1.1
+
+    - run: |
+        "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe" client.sln /p:Configuration=Release /p:Platform=Win32
