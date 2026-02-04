@@ -20,4 +20,4 @@ jobs:
 
     - shell: cmd
       run: |
-        msbuild client.sln /p:Configuration=Release /p:Platform=Win32
+        msbuild client.sln /p:Configuration=Release /p:Platform=x86
