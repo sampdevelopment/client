@@ -1,56 +1,64 @@
-name: Build Client
+name: Build Client (Windows + Linux)
 
 on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
 
-    strategy:
-      matrix:
-        os: [windows-latest, ubuntu-latest]
+  windows:
+    name: Windows Win32
+    runs-on: windows-latest
 
     steps:
-    - name: Checkout repo + SDK
+    - name: Checkout client
       uses: actions/checkout@v4
-      with:
-        submodules: true
-        fetch-depth: 0
 
-    # ================= WINDOWS =================
-    - name: Setup MSVC
-      if: matrix.os == 'windows-latest'
-      uses: ilammy/msvc-dev-cmd@v1
-
-    - name: Build SDK (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Clone SDK next to client
       run: |
-        cd SDK
-        msbuild sdk.sln /p:Configuration=Release /p:Platform=Win32
+        cd ..
+        git clone https://github.com/sampdevelopment/sdk.git sdk
 
-    - name: Build Client (Win32)
-      if: matrix.os == 'windows-latest'
+    - name: Verify layout
       run: |
-        msbuild samp-client.sln /p:Configuration=Release /p:Platform=Win32
+        cd ..
+        dir
+        dir sdk
+        dir client
 
-    # ================= LINUX =================
-    - name: Install Linux deps
-      if: matrix.os == 'ubuntu-latest'
+    - name: Build (Win32)
+      run: |
+        cd client
+        msbuild client.sln /p:Configuration=Release /p:Platform=Win32
+
+
+  linux:
+    name: Linux (Ubuntu compatible)
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout client
+      uses: actions/checkout@v4
+
+    - name: Install build tools
       run: |
         sudo apt update
-        sudo apt install -y build-essential g++ make
+        sudo apt install -y build-essential g++ make cmake
 
-    - name: Build SDK (Linux)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Clone SDK next to client
       run: |
-        cd SDK
+        cd ..
+        git clone https://github.com/sampdevelopment/sdk.git sdk
+
+    - name: Verify layout
+      run: |
+        cd ..
+        ls
+        ls sdk
+        ls client
+
+    - name: Build (Linux)
+      run: |
+        cd client
         make
-
-    - name: Build Client Core (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        make linux
