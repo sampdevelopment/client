@@ -1,4 +1,4 @@
-name: Build Client (Windows + Linux)
+name: Build Client (Win32)
 
 on:
   push:
@@ -6,11 +6,9 @@ on:
   pull_request:
 
 jobs:
-
-  windows:
-    name: Windows Win32
+  build:
     runs-on: windows-latest
-
+    
     steps:
     - name: Checkout client
       uses: actions/checkout@v4
@@ -19,46 +17,14 @@ jobs:
       run: |
         cd ..
         git clone https://github.com/sampdevelopment/sdk.git sdk
-
-    - name: Verify layout
+        
+    - name: Check directories
       run: |
         cd ..
         dir
         dir sdk
         dir client
 
-    - name: Build (Win32)
+    - name: Build Client (Win32)
       run: |
-        cd client
         msbuild client.sln /p:Configuration=Release /p:Platform=Win32
-
-
-  linux:
-    name: Linux (Ubuntu compatible)
-    runs-on: ubuntu-22.04
-
-    steps:
-    - name: Checkout client
-      uses: actions/checkout@v4
-
-    - name: Install build tools
-      run: |
-        sudo apt update
-        sudo apt install -y build-essential g++ make cmake
-
-    - name: Clone SDK next to client
-      run: |
-        cd ..
-        git clone https://github.com/sampdevelopment/sdk.git sdk
-
-    - name: Verify layout
-      run: |
-        cd ..
-        ls
-        ls sdk
-        ls client
-
-    - name: Build (Linux)
-      run: |
-        cd client
-        make
