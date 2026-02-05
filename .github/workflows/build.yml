@@ -12,7 +12,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - run: git clone https://github.com/sampdevelopment/sdk.git sdk
+    - name: Clone SDK
+      run: git clone https://github.com/sampdevelopment/sdk.git sdk
 
     - run: choco install directx-sdk -y
 
@@ -21,4 +22,4 @@ jobs:
     - shell: cmd
       run: |
         set "DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)"
-        msbuild "client.sln" /p:Configuration=Release /p:Platform=x86
+        msbuild client.sln /p:Configuration=Release /p:Platform=x86
