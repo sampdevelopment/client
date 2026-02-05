@@ -7,12 +7,14 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+
+    - run: |
+        cd ..
+        git clone https://github.com/sampdevelopment/sdk.git sdk
 
     - run: choco install directx-sdk -y
 
@@ -23,6 +25,6 @@ jobs:
 
     - uses: microsoft/setup-msbuild@v1.1
 
-    - name: Build Client
-      run: msbuild client.sln /p:Configuration=Release /p:Platform=x86
-      shell: cmd
+    - shell: cmd
+      run: |
+        msbuild client.sln /p:Configuration=Release /p:Platform=x86
