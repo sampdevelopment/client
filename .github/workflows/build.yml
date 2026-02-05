@@ -7,17 +7,18 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
-    - run: |
-        cd ..
-        git clone https://github.com/sampdevelopment/sdk.git sdk
+    - run: choco install directx-sdk -y
+
+    - run: echo DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010) >> %GITHUB_ENV%
 
     - uses: microsoft/setup-msbuild@v1.1
 
     - shell: cmd
-      run: |
-        msbuild client.sln /p:Configuration=Release /p:Platform=x86
+      run: msbuild client.sln /p:Configuration=Release /p:Platform=Win32
