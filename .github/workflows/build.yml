@@ -16,9 +16,13 @@ jobs:
 
     - run: choco install directx-sdk -y
 
-    - run: echo DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010) >> %GITHUB_ENV%
+    - name: Set DXSDK_DIR
+      run: |
+        echo "DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)" >> $env:GITHUB_ENV
+      shell: pwsh
 
     - uses: microsoft/setup-msbuild@v1.1
 
-    - shell: cmd
+    - name: Build Client
       run: msbuild client.sln /p:Configuration=Release /p:Platform=Win32
+      shell: cmd
