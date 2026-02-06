@@ -12,10 +12,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Clone SDK
-      run: git clone https://github.com/sampdevelopment/sdk.git sdk
-
-    - run: choco install directx-sdk -y
+    - run: |
+        cd ..
+        git clone https://github.com/sampdevelopment/sdk.git sdk
+        choco install directx-sdk -y
 
     - uses: microsoft/setup-msbuild@v1.1
 
