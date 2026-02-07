@@ -18,8 +18,12 @@ private:
     ULONGLONG m_ullLastUpdate;
     float m_fX, m_fY, m_fZ;
     float m_fDistance;
+
     char* m_szTitle;
     char* m_szLabel;
+
+    float m_fCurrentVol;
+    float m_fTargetVol;
 
     struct {
         unsigned char bInited : 1;
