@@ -1,6 +1,6 @@
+#include "dialog.h"
 #include "main.h"
-#include <string>
-#include <array>
+#include <d3dx9.h>
 
 #define IDC_DLGEDITBOX 19
 #define IDC_DLGBUTTON1 20
@@ -18,24 +18,22 @@ std::string TokensStringUntilNewLine(const std::string& src)
 
 CDialog::CDialog(IDirect3DDevice9* pDevice)
     : m_pDevice(pDevice),
-      m_pDialog(nullptr),
-      m_pListBox(nullptr),
-      m_pEditBox(nullptr),
       m_iWidth(600),
       m_iHeight(300),
       m_i20(100),
       m_i24(30),
       m_bVisible(false),
       m_iScreenOffsetX(0),
-      m_iScreenOffsetY(0)
+      m_iScreenOffsetY(0),
+      m_bSend(false),
+      m_iID(-1),
+      m_iStyle(0)
 {
 }
 
 void CDialog::ResetDialogControls()
 {
-    SAFE_DELETE(m_pDialog);
-
-    m_pDialog = new CDXUTDialog();
+    m_pDialog = std::make_unique<CDXUTDialog>();
     if (!m_pDialog) return;
 
     m_pDialog->Init(pDialogResourceManager);
@@ -47,8 +45,8 @@ void CDialog::ResetDialogControls()
     m_pDialog->SetBackgroundColors(D3DCOLOR_ARGB(220, 5, 5, 5));
     m_pDialog->SetVisible(false);
 
-    m_pListBox = new CDXUTListBox(m_pDialog);
-    m_pDialog->AddControl(m_pListBox);
+    m_pListBox = std::make_unique<CDXUTListBox>(m_pDialog.get());
+    m_pDialog->AddControl(m_pListBox.get());
     m_pListBox->SetLocation(10, 10);
     m_pListBox->SetSize(m_iWidth, m_iHeight - 100);
     m_pListBox->OnInit();
@@ -60,6 +58,7 @@ void CDialog::ResetDialogControls()
     m_pDialog->AddButton(IDC_DLGBUTTON1, "BUTTON1", 10, 5, m_i20, m_i24);
     m_pDialog->AddButton(IDC_DLGBUTTON2, "BUTTON2", 110, 5, m_i20, m_i24);
 
+    m_pEditBox = std::make_unique<CDXUTIMEEditBox>();
     m_pDialog->AddIMEEditBox(IDC_DLGEDITBOX, "", 10, 175, 570, 40, true, &m_pEditBox);
     if (pConfigFile->GetInt("ime"))
     {
@@ -111,32 +110,29 @@ SIZE CDialog::MeasureText(const char* szText, int maxWidth)
 
 void CDialog::UpdateLayout()
 {
-    const int buttonPadding = 10;
-    const int buttonSpacing = 10;
-
-    int minWidth = 2 * m_i20 + buttonSpacing;
+    int minWidth = 2 * m_i20 + 10;
     if (m_iWidth < minWidth) m_iWidth = minWidth;
 
     m_pDialog->SetSize(m_iWidth, m_iHeight);
 
     RECT rect;
     GetClientRect(pGame->GetMainWindowHwnd(), &rect);
-    m_iScreenOffsetX = (rect.right / 2) - (m_iWidth / 2);
-    m_iScreenOffsetY = (rect.bottom / 2) - (m_iHeight / 2);
+    m_iScreenOffsetX = (rect.right - m_iWidth) / 2;
+    m_iScreenOffsetY = (rect.bottom - m_iHeight) / 2;
     m_pDialog->SetLocation(m_iScreenOffsetX, m_iScreenOffsetY);
 
-    CDXUTControl* pButton1 = m_pDialog->GetControl(IDC_DLGBUTTON1);
-    CDXUTControl* pButton2 = m_pDialog->GetControl(IDC_DLGBUTTON2);
+    auto pButton1 = m_pDialog->GetControl(IDC_DLGBUTTON1);
+    auto pButton2 = m_pDialog->GetControl(IDC_DLGBUTTON2);
     int formHeight = m_iHeight - m_pDialog->GetCaptionHeight();
 
     if (pButton2->GetVisible())
     {
-        pButton1->SetLocation((m_iWidth - 2*m_i20 - buttonSpacing)/2, formHeight - m_i24 - buttonPadding);
-        pButton2->SetLocation(pButton1->GetLocation().x + m_i20 + buttonSpacing, formHeight - m_i24 - buttonPadding);
+        pButton1->SetLocation((m_iWidth - 2 * m_i20 - 10) / 2, formHeight - m_i24 - 10);
+        pButton2->SetLocation(pButton1->GetLocation().x + m_i20 + 10, formHeight - m_i24 - 10);
     }
     else
     {
-        pButton1->SetLocation((m_iWidth - m_i20)/2, formHeight - m_i24 - buttonPadding);
+        pButton1->SetLocation((m_iWidth - m_i20) / 2, formHeight - m_i24 - 10);
     }
 
     LONG lHeight = LONG(m_pDialog->GetFont(0)->nHeight * -1.5f);
@@ -147,7 +143,7 @@ void CDialog::UpdateLayout()
 
 bool CDialog::IsCandicateActive()
 {
-    return (m_pEditBox && CDXUTIMEEditBox::IsCandidateActive());
+    return m_pEditBox && CDXUTIMEEditBox::IsCandidateActive();
 }
 
 void CDialog::GetRect(RECT* rect)
@@ -179,12 +175,11 @@ void CDialog::Show(int iID, int iStyle, const char* szCaption, const char* szTex
 
     m_szCaption = szCaption ? szCaption : "";
     m_szInfo = szText ? szText : "";
-
-    SIZE size{};
     m_InfoSize = MeasureText(m_szInfo.c_str(), 64);
 
     if (!m_szCaption.empty())
     {
+        SIZE size{};
         pDefaultFont->MeasureSmallerText(&size, "Y", 0);
         strcpy_s(m_pDialog->GetCaptionText(), 256, m_szCaption.c_str());
         m_pDialog->EnableCaption(true);
@@ -226,5 +221,4 @@ void CDialog::Hide()
 
 VOID CALLBACK OnDialogEvent(UINT nEvent, int nControlID, CDXUTControl* pControl, void* pUserContext)
 {
-    // Future event handling can go here (buttons, editbox input)
 }
