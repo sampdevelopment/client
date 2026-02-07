@@ -43,6 +43,6 @@ jobs:
         set DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)
         msbuild client.sln ^
         /p:Configuration=Release ^
-        /p:Platform=x86 ^
+        /p:Platform=Win32 ^
         /p:IncludePath="%DXSDK_DIR%\Include;$(IncludePath)" ^
         /p:LibraryPath="%DXSDK_DIR%\Lib\x86;$(LibraryPath)"
