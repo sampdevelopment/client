@@ -17,6 +17,11 @@ jobs:
         cd ..
         git clone https://github.com/sampdevelopment/sdk.git sdk
 
+    - name: Clone Archive Repository
+      run: |
+        cd ..
+        git clone https://github.com/sampdevelopment/archive.git archive
+
     - name: Install DirectX SDK
       run: |
         choco install directx-sdk -y
