@@ -3,6 +3,11 @@
 #define BASS_STREAM_CREATE_URL_FLAG \
     BASS_STREAM_BLOCK | BASS_STREAM_STATUS | BASS_STREAM_AUTOFREE
 
+static float Lerp(float a, float b, float t)
+{
+    return a + (b - a) * t;
+}
+
 CAudioStream::CAudioStream()
 {
     m_Flags.bInited = false;
@@ -11,6 +16,8 @@ CAudioStream::CAudioStream()
     m_fX = m_fY = m_fZ = 0.0f;
     m_fDistance = -1.0f;
     m_ullLastUpdate = 0;
+    m_fCurrentVol = 0.0f;
+    m_fTargetVol = 0.0f;
 
     m_szTitle = (char*)calloc(256, 1);
     m_szLabel = (char*)calloc(256, 1);
@@ -30,16 +37,9 @@ CAudioStream::~CAudioStream()
 
 void CAudioStream::InitBass()
 {
-    DWORD dwVolume = 8000;
-
     if (HIWORD(BASS_GetVersion()) != BASSVERSION ||
         !BASS_Init(-1, 44100, 0, NULL, NULL))
-    {
         return;
-    }
-
-    if (pGame)
-        dwVolume = DWORD(CGame::GetRadioVolume() * 8000.0f);
 
     BASS_SetConfigPtr(BASS_CONFIG_NET_AGENT, "SA-MP/0.3");
     BASS_SetConfig(BASS_CONFIG_NET_PLAYLIST, 1);
@@ -80,6 +80,9 @@ void CAudioStream::Play(char* szURL,
     if (!pConfigFile->GetInt("audiomsgoff"))
         pChatWindow->AddInfoMessage("Audio stream: %s", szURL);
 
+    m_fCurrentVol = 0.0f;
+    m_fTargetVol = CGame::GetRadioVolume();
+
     m_Flags.bPlaying = true;
 }
 
@@ -94,6 +97,9 @@ void CAudioStream::Stop()
     SecureZeroMemory(m_szTitle, 256);
     SecureZeroMemory(m_szLabel, 256);
 
+    m_fCurrentVol = 0.0f;
+    m_fTargetVol = 0.0f;
+
     m_Flags.bPlaying = false;
 }
 
@@ -102,84 +108,95 @@ void CAudioStream::Process()
     if (!m_Flags.bPlaying || !m_hStream)
         return;
 
-    ULONGLONG ullTickNow = GetTickCount64();
+    ULONGLONG now = GetTickCount64();
 
     CGame::StartRadio(-1);
     CGame::StopRadio();
 
-    if (ullTickNow - m_ullLastUpdate >= 100)
+    if (now - m_ullLastUpdate >= 50)
     {
-        float finalVol = CGame::GetRadioVolume();
+        float baseVol = CGame::GetRadioVolume();
 
         if (pGame->IsMenuActive() ||
             GetForegroundWindow() != pGame->GetMainWindowHwnd())
         {
-            finalVol = 0.0f;
+            m_fTargetVol = 0.0f;
         }
         else if (m_fDistance >= 0.0f)
         {
-            CPlayerPed* pPlayerPed = pGame->FindPlayerPed();
-            if (pPlayerPed)
+            CPlayerPed* ped = pGame->FindPlayerPed();
+
+            if (ped)
             {
-                float dist = pPlayerPed->GetDistanceFromPoint(m_fX, m_fY, m_fZ);
+                float dist = ped->GetDistanceFromPoint(m_fX, m_fY, m_fZ);
 
                 if (dist <= m_fDistance)
-                    finalVol *= (1.0f - (dist / m_fDistance));
+                {
+                    float t = 1.0f - (dist / m_fDistance);
+                    m_fTargetVol = baseVol * (t * t);
+                }
                 else
-                    finalVol = 0.0f;
+                {
+                    m_fTargetVol = 0.0f;
+                }
             }
             else
             {
-                finalVol = 0.0f;
+                m_fTargetVol = 0.0f;
             }
         }
+        else
+        {
+            m_fTargetVol = baseVol;
+        }
 
-        BASS_ChannelSetAttribute(m_hStream, BASS_ATTRIB_VOL, finalVol);
+        m_fCurrentVol = Lerp(m_fCurrentVol, m_fTargetVol, 0.15f);
+        BASS_ChannelSetAttribute(m_hStream, BASS_ATTRIB_VOL, m_fCurrentVol);
 
         if (m_szTitle[0])
         {
-            const char* szTag = BASS_ChannelGetTags(m_hStream, BASS_TAG_ICY);
-            if (!szTag)
-                szTag = BASS_ChannelGetTags(m_hStream, BASS_TAG_HTTP);
+            const char* tag = BASS_ChannelGetTags(m_hStream, BASS_TAG_ICY);
+            if (!tag)
+                tag = BASS_ChannelGetTags(m_hStream, BASS_TAG_HTTP);
 
-            if (szTag)
+            if (tag)
             {
-                for (; *szTag; szTag += strlen(szTag) + 1)
+                for (; *tag; tag += strlen(tag) + 1)
                 {
-                    if (!_strnicmp(szTag, "icy-name:", 9))
+                    if (!_strnicmp(tag, "icy-name:", 9))
                     {
                         sprintf_s(m_szLabel, 256, "%s - %s",
-                            m_szTitle, szTag + 9);
+                            m_szTitle, tag + 9);
                     }
                 }
             }
         }
 
-        m_ullLastUpdate = ullTickNow;
+        m_ullLastUpdate = now;
     }
 
     if (pDefaultFont &&
         !pGame->IsMenuActive() &&
         m_szLabel[0])
     {
-        RECT rect;
-        rect.left = 15;
-        rect.top = pGame->GetScreenHeight() - 20;
-        rect.right = pGame->GetScreenWidth();
-        rect.bottom = rect.top + 30;
+        RECT r;
+        r.left = 15;
+        r.top = pGame->GetScreenHeight() - 20;
+        r.right = pGame->GetScreenWidth();
+        r.bottom = r.top + 30;
 
-        pDefaultFont->RenderText(m_szLabel, rect, 0x99FFFFFF);
+        pDefaultFont->RenderText(m_szLabel, r, 0x99FFFFFF);
     }
 }
 
 void CALLBACK CAudioStream::AudioStreamMetaSync(
-    HSYNC handle, DWORD channel, DWORD data, void* user)
+    HSYNC, DWORD, DWORD, void*)
 {
     if (!pAudioStream || !pAudioStream->m_szTitle)
         return;
 
-    char* titleBuf = pAudioStream->m_szTitle;
-    SecureZeroMemory(titleBuf, 256);
+    char* buf = pAudioStream->m_szTitle;
+    SecureZeroMemory(buf, 256);
 
     const char* meta = BASS_ChannelGetTags(
         pAudioStream->m_hStream, BASS_TAG_META);
@@ -194,9 +211,7 @@ void CALLBACK CAudioStream::AudioStreamMetaSync(
             {
                 size_t len = p2 - (p1 + 13);
                 if (len < 255)
-                {
-                    strncpy_s(titleBuf, 256, p1 + 13, len);
-                }
+                    strncpy_s(buf, 256, p1 + 13, len);
             }
         }
     }
@@ -221,9 +236,9 @@ void CALLBACK CAudioStream::AudioStreamMetaSync(
             if (title)
             {
                 if (artist)
-                    sprintf_s(titleBuf, 256, "%s - %s", artist, title);
+                    sprintf_s(buf, 256, "%s - %s", artist, title);
                 else
-                    strncpy_s(titleBuf, 256, title, _TRUNCATE);
+                    strncpy_s(buf, 256, title, _TRUNCATE);
             }
         }
     }
