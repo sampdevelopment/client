@@ -12,20 +12,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - run: |
+    # Clone SDK
+    - name: Clone SA-MP SDK
+      run: |
         cd ..
         git clone https://github.com/sampdevelopment/sdk.git sdk
+
+    # Install DXSDK
+    - name: Install DirectX SDK
+      run: |
         choco install directx-sdk -y
 
     - uses: microsoft/setup-msbuild@v1.1
 
-    - name: Set DXSDK_DIR
+    # Build with DXSDK injected
+    - name: Build Client
+      shell: cmd
       run: |
-        echo "DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)" >> $env:GITHUB_ENV
-      shell: pwsh
-
-    - uses: microsoft/setup-msbuild@v1.1
-
-    - shell: cmd
-      run: |
-        msbuild client.sln /p:Configuration=Release /p:Platform=x86
+        set DXSDK_DIR=C:\Program Files (x86)\Microsoft DirectX SDK (June 2010)
+        msbuild client.sln ^
+        /p:Configuration=Release ^
+        /p:Platform=Win32 ^
+        /p:IncludePath="%DXSDK_DIR%\Include;$(IncludePath)" ^
+        /p:LibraryPath="%DXSDK_DIR%\Lib\x86;$(LibraryPath)"
