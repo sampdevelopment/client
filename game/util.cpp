@@ -1,15 +1,7 @@
-//----------------------------------------------------------
-//
-// SA:MP Multiplayer Modification For GTA:SA
-// Copyright 2004-2005 SA:MP team
-//
-// Version: $Id: util.cpp,v 1.21 2006/06/18 10:20:21 kyeman Exp $
-//
-//----------------------------------------------------------
-
 #include <windows.h>
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
 #include "game.h"
 #include "../main.h"
 
@@ -536,11 +528,10 @@ int __stdcall GameGetWeaponModelIDFromWeaponID(int iWeaponID)
 
 //-----------------------------------------------------------
 
-void __stdcall SetRadarColor(BYTE nIndex,DWORD dwColor)
+void __stdcall SetRadarColor(BYTE nIndex, DWORD dwColor)
 {
-	if(nIndex < sizeof(dwUseHudColors)) {
+	if (nIndex < NUM_RADAR_COLORS)
 		dwUseHudColors[nIndex] = dwColor;
-	}
 }
 
 //-----------------------------------------------------------
@@ -818,51 +809,14 @@ void _declspec(noreturn) GameForcedExit(int iReasonCode)
 	ExitProcess(iReasonCode);
 #endif
 
-	// This function will forcefully exit the game with a obfuscated exit code, 
-	// and pretty much corrupt the application's stack.
-
 	srand((unsigned int)time(NULL));
-	//int nonse = rand() ^ (rand() << 8);
-	// xxxxxxxxxx0xxx0xxxxx0x0xx0xxx = 32 max
-	// 11111111110111011111010110111 = 
-	//                          1000 
-	//                       1000000
-	//                     100000000
-	//               100000000000000
-	//            100000000000000000
 
-	/*nonse &= 0xFFFBBEB7;
-	nonse |= ((iReasonCode & 0x1) << 3);
-	nonse |= ((iReasonCode & 0x2) << 5);
-	nonse |= ((iReasonCode & 0x4) << 6);
-	nonse |= ((iReasonCode & 0x8) << 11);
-	nonse |= ((iReasonCode & 0x16) << 14);*/
-
-	// Go back a certain amount of sp
 	int spBack = ((rand() ^ (rand() << 5)) >> 3) % 0x3F;
 	if ((spBack % 4) != 0)
 		spBack += 4-(spBack%4);
 
-	// Go foward a certain amount from our scanlist data (+4) which is essentially replaced with PlayerInfos
 	int pfForward = (rand() ^ (rand() << 7)) % 0xFFF;
 	
-	// Write the reason code as an octal number
-	/*char *pOffs = (char*)(pfForward+0xB7D0BC);
-	
-	// "Internal check failed "
-	memcpy(pOffs, (char*)0x86A5B0, 5);	pOffs+=5;
-	memcpy(pOffs, (char*)0x8689B6, 3);	pOffs+=3;
-	memcpy(pOffs, (char*)0x8749B6, 7); 	pOffs+=7;
-	memcpy(pOffs, (char*)0x858AA5, 7); 	pOffs+=7;
-	
-
-	// "Internal error: "
-	memcpy(pOffs, (char*)0x86A5BB, 5);	pOffs+=5;
-	memcpy(pOffs, (char*)0x8689B6, 3);	pOffs+=3;
-	memcpy(pOffs, (char*)0x86B97C, 8); 	pOffs+=8;
-
-	itoa(nonse, (char*)(pOffs), 8);*/
-	// Pass over the dirty work to GameForcedExitHelper
 	__asm
 	{
 		push spBack;
@@ -1018,4 +972,35 @@ void QuatNormalize(D3DXQUATERNION* pQuat)
 	pQuat->y = Out.y;
 	pQuat->z = Out.z;
 	pQuat->w = Out.w;
+}
+
+static bool g_bMotionBlurEnabled = false;
+
+static void GameWriteMemory(void* address, const void* data, size_t size)
+{
+	DWORD oldProtect = 0;
+	if (VirtualProtect(address, size, PAGE_EXECUTE_READWRITE, &oldProtect))
+	{
+		memcpy(address, data, size);
+		FlushInstructionCache(GetCurrentProcess(), address, size);
+		DWORD tmp = 0;
+		VirtualProtect(address, size, oldProtect, &tmp);
+	}
+}
+
+bool GameSetMotionBlurEnabled(bool enabled)
+{
+	const DWORD kPatchAddr = 0x704E8A;
+
+	const BYTE kEnablePatch[5]  = { 0xE8, 0x11, 0xE2, 0xFF, 0xFF };
+	const BYTE kDisablePatch[5] = { 0x90, 0x90, 0x90, 0x90, 0x90 };
+
+	GameWriteMemory((void*)kPatchAddr, enabled ? kEnablePatch : kDisablePatch, 5);
+	g_bMotionBlurEnabled = enabled;
+	return g_bMotionBlurEnabled;
+}
+
+bool GameIsMotionBlurEnabled()
+{
+	return g_bMotionBlurEnabled;
 }
