@@ -1,12 +1,3 @@
-//----------------------------------------------------------
-//
-// SA:MP Multiplayer Modification For GTA:SA
-// Copyright 2004-2005 SA:MP team
-//
-// Version: $Id: util.h,v 1.15 2006/05/08 20:33:58 kyeman Exp $
-//
-//----------------------------------------------------------
-
 #pragma once
 
 #define ENTITY_TYPE_UNKNOWN		0
@@ -78,6 +69,5 @@ MODEL_INFO_TYPE* GetModelInfo(int iModelID);
 MODEL_COL_TYPE* GetModelColInfo(int iModelID);
 WORD GetModelUseCount(int iModelID);
 
-
-//-----------------------------------------------------------
-
+bool GameSetMotionBlurEnabled(bool enabled);
+bool GameIsMotionBlurEnabled();
