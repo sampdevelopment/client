@@ -1505,6 +1505,17 @@ static void cmdHeadMove(PCHAR szCmd)
 	ChatInfo(bHeadMove ? "-> Head movements enabled." : "-> Head movements disabled.");
 }
 
+static void cmdMotionBlur(PCHAR szCmd)
+{
+	(void)szCmd;
+	if (!pChatWindow || !pConfigFile) return;
+
+	const bool newState = !GameIsMotionBlurEnabled();
+	GameSetMotionBlurEnabled(newState);
+	pConfigFile->SetInt("motionblur", newState ? 1 : 0);
+	ChatInfo(newState ? "-> Motion blur enabled." : "-> Motion blur disabled.");
+}
+
 void cmdDebugLabels(PCHAR szCmd)
 {
 	(void)szCmd;
@@ -1543,6 +1554,8 @@ void SetupCommands()
 	pCmdWindow->AddCmdProc("timestamp", cmdToggleChatTimeStamp);
 	pCmdWindow->AddCmdProc("hudscalefix", cmdHudScaleFix);
 	pCmdWindow->AddCmdProc("headmove", cmdHeadMove);
+	pCmdWindow->AddCmdProc("motionblur", cmdMotionBlur);
+	pCmdWindow->AddCmdProc("mblur", cmdMotionBlur);
 
 	pCmdWindow->AddCmdProc("disvehico", cmdDisableVehMapIcon);
 	pCmdWindow->AddCmdProc("testdw", cmdTestDeathWindow);
