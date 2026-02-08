@@ -1,89 +1,96 @@
-
 #include "main.h"
+
+static constexpr float BASE_TEXT_HEIGHT = 0.065f;
+static constexpr float LINE_HEIGHT = 0.0125f;
+static constexpr int HEAD_BONE_ID = 8;
 
 CChatBubble::CChatBubble()
 {
-	SecureZeroMemory(m_ChatBubbleEntries, sizeof(m_ChatBubbleEntries));
+    for (auto &entry : m_ChatBubbleEntries)
+        entry.Reset();
 }
 
-void CChatBubble::AddText(WORD wPlayerID, char* szText,
-	DWORD dwColor, float fDistance, int iDuration)
+void CChatBubble::AddText(
+    WORD wPlayerID,
+    const char* szText,
+    DWORD dwColor,
+    float fDistance,
+    int iDuration)
 {
-	CHAT_BUBBLE_ENTRY* pEntry;
+    if (!szText || wPlayerID >= MAX_PLAYERS)
+        return;
 
-	if (wPlayerID < MAX_PLAYERS)
-	{
-		pEntry = &m_ChatBubbleEntries[wPlayerID];
+    if (strlen(szText) > MAX_CHAT_BUBBLE_TEXT)
+        return;
 
-		SecureZeroMemory(pEntry, sizeof(CHAT_BUBBLE_ENTRY));
+    CHAT_BUBBLE_ENTRY &entry = m_ChatBubbleEntries[wPlayerID];
 
-		if (strlen(szText) <= MAX_CHAT_BUBBLE_TEXT)
-		{
-			strcpy_s(pEntry->szText, szText);
-			pEntry->iLineCount = FormatChatBubbleText(pEntry->szText, 36, 12) - 1;
-			pEntry->dwColor = (dwColor >> 8) | 0xFF000000;
-			pEntry->fDistance = fDistance;
-			pEntry->dwExpireTick = GetTickCount() + (DWORD)iDuration;
-			//m_ChatBubbleEntries[i].dwDuration = (DWORD)iDuration;
-			//m_ChatBubbleEntries[i].dwCreationTick = GetTickCount();
-			pEntry->bValid = true;
-		}
-	}
+    entry.Reset();
+
+    strcpy_s(entry.szText, szText);
+    entry.iLineCount = max(0, FormatChatBubbleText(entry.szText, 36, 12) - 1);
+
+    entry.dwColor = (dwColor >> 8) | 0xFF000000;
+    entry.fDistance = fDistance;
+    entry.dwExpireTick = GetTickCount() + static_cast<DWORD>(iDuration);
+    entry.bValid = true;
 }
 
 void CChatBubble::Draw()
 {
-	if (!pNetGame && !pGame->FindPlayerPed() && !pLabel)
-		return;
+    if (!pNetGame || !pGame || !pGame->FindPlayerPed() || !pLabel)
+        return;
 
-	CHAT_BUBBLE_ENTRY* pEntry;
-	DWORD dwTick = GetTickCount();
-	CRemotePlayer* pRemotePlayer;
-	CPlayerPed* pPlayerPed;
-	VECTOR vecHeadBonePos;
-	D3DXVECTOR3 vecPos;
-	float fTextHeight;
-	int i = 0;
+    const DWORD dwNow = GetTickCount();
 
-	pLabel->Begin();
+    pLabel->Begin();
 
-	while (i!=MAX_PLAYERS)
-	{
-		pEntry = &m_ChatBubbleEntries[i];
+    for (int i = 0; i < MAX_PLAYERS; ++i)
+    {
+        CHAT_BUBBLE_ENTRY &entry = m_ChatBubbleEntries[i];
 
-		if (pEntry->bValid)
-		{
-			//if(dwTick <= pEntry->dwCreationTick + pEntry->dwDuration)
-			if (dwTick <= pEntry->dwExpireTick)
-			{
-				pRemotePlayer = pNetGame->GetPlayerPool()->GetAt(i);
+        if (!entry.bValid)
+            continue;
 
-				if (pRemotePlayer && pRemotePlayer->GetPlayerPed() && pRemotePlayer->GetState())
-				{
-					pPlayerPed = pRemotePlayer->GetPlayerPed();
+        if (dwNow > entry.dwExpireTick)
+        {
+            entry.bValid = false;
+            continue;
+        }
 
-					if (pPlayerPed->GetDistanceFromLocalPlayerPed() <= pEntry->fDistance)
-					{
-						pPlayerPed->GetBonePosition(8, &vecHeadBonePos);
+        CRemotePlayer* pRemote = pNetGame->GetPlayerPool()->GetAt(i);
+        if (!pRemote || !pRemote->GetState())
+            continue;
 
-						vecPos.x = vecHeadBonePos.X;
-						vecPos.y = vecHeadBonePos.Y;
-						vecPos.z = vecHeadBonePos.Z;
-						
-						fTextHeight = ((pEntry->iLineCount * 0.0125f) + 0.065f) + (pEntry->iLineCount * 0.0125f);
-						vecPos.z += pPlayerPed->GetDistanceFromCamera() * fTextHeight + 0.2f;
+        CPlayerPed* pPed = pRemote->GetPlayerPed();
+        if (!pPed)
+            continue;
 
-						pLabel->Draw(&vecPos, pEntry->szText, pEntry->dwColor, true, false);
-					}
-				}
-			}
-			else
-			{
-				pEntry->bValid = false;
-			}
-		}
-		i++;
-	}
+        if (pPed->GetDistanceFromLocalPlayerPed() > entry.fDistance)
+            continue;
 
-	pLabel->End();
+        VECTOR headPos;
+        pPed->GetBonePosition(HEAD_BONE_ID, &headPos);
+
+        D3DXVECTOR3 worldPos;
+        worldPos.x = headPos.X;
+        worldPos.y = headPos.Y;
+        worldPos.z = headPos.Z;
+
+        const float textOffset =
+            BASE_TEXT_HEIGHT +
+            (entry.iLineCount * LINE_HEIGHT * 2.0f);
+
+        worldPos.z += pPed->GetDistanceFromCamera() * textOffset + 0.2f;
+
+        pLabel->Draw(
+            &worldPos,
+            entry.szText,
+            entry.dwColor,
+            true,
+            false
+        );
+    }
+
+    pLabel->End();
 }
